@@ -18,7 +18,7 @@ from os import listdir
 import numpy as np
 import matplotlib.pyplot as plt
 
-PATH = "C:\\Users\\chadd\\OneDrive\\Documents\\Undergrad Degree\\Semester 5 (2023)\\Labs\\Week 3 Datasets Extracted\\Optics Tests and Setup (Exp 2) EXTRACTED\\"
+PATH = "../data/Week 3 Datasets Extracted/Optics Tests and Setup (Exp 2) EXTRACTED/"
 FILENAME = "Max_Vals.csv"
 
 
@@ -52,6 +52,6 @@ if __name__ == "__main__":
     ax.legend()
     ax.grid()
     plt.tight_layout()
-    plt.savefig("Optics Tests.png", dpi=800)
+    plt.savefig("../results/Optics Tests.png", dpi=800)
     plt.show()
     plt.clf()

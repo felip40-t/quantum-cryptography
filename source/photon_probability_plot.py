@@ -8,9 +8,10 @@ PHYS20161 -- Assignment N -- [ASSIGNMENT NAME]
 
 
 Created: Thu Oct 26 11:10:13 2023
-Last Updated:
+Last Updated: Fri May 1 17:40:00 2026 - Edited by Felipe Tcach
 
 @author: Charlie Fynn Perkins, UID: 10839865 0
+
 """
 
 
@@ -74,6 +75,6 @@ ax.grid(which='major', alpha=0.5, zorder=0)
 ax.set_xticks(x + width, system, rotation="vertical")
 ax.legend(loc=(0.1, 0.8))
 ax.set_ylim(0, 120)
-plt.savefig("fig.png", dpi=1000)
+plt.savefig('../results/photon_probabilities.pdf', dpi=1000)
 
 plt.show()
