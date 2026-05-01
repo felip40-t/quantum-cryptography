@@ -24,8 +24,6 @@ def plot_data(percs, bit_lengths, num_incorrect):
     incorrect_4 = []
     incorrect_5 = []
     incorrect_other = []
-    #for i in :
-
 
     fig = plt.figure(figsize=(12,8))
     ax = fig.add_subplot(111)
