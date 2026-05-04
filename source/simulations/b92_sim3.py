@@ -11,26 +11,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import csv
-"""
-PROBS1 = [0.991714208,
-          0.550833094,
-          0.481797817,
-          0.986253124] # on axis
-PROBS2 = [0.99683830,
-          0.56248499,
-          0.43118671,
-          0.99388242] # off axis
 
-UNCERTAINS1 = [0.045257911,
-               0.031513137,
-               0.029166418,
-               0.037687646]
-
-UNCERTAINS2 = [0.05037069,
-               0.02713008,
-               0.02571711,
-               0.04980150]
-"""
 #updated
 
 PROBS1 = [0.984194058,0.460664777, 0.52466991, 0.981594554]
@@ -138,11 +119,6 @@ def check_keys(key1, key2):
     return correctness, num_incorrect, len(key1)
 
 def plot_data(percs, bit_lengths, incorrects, final_l):
-    #average = []
-    #key_length_plot = np.arange(20,N)
-    #for i in range(N):
-     #   avg = np.mean(percs[:(i+1)])
-      #  average.append(avg)
     fig = plt.figure(figsize=(12,8))
     ax = fig.add_subplot(111)
     ax.set_title("B92 Simulation updated", fontsize=17)

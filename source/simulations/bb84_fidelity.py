@@ -8,42 +8,17 @@ PHYS20161 -- Assignment N -- [ASSIGNMENT NAME]
 
 
 Created: Thu Oct 26 14:51:07 2023
-Last Updated:
+Last Updated: 04/05/2026 by Felipe Tcach
 
 @author: Charlie Fynn Perkins, UID: 10839865 0
 """
 
-'''
-Definitions:
-    We can send a 0 or a 1 in an A or B basis.
-    A is the 0/90 basis
-    B is the -45,45 basis
-
-    In combination, we can send data as:
-        0A - 0*
-        1A - 90*
-        0B - 45*
-        1B - -45*
-    using the above angles.
-
-    They can be measured in A or B, giving 8 possible scenarios:
-        0AA - Tx 0*, Rx 0*
-        0AB - Tx 0*, Rx 45*
-        0BA - Tx 45*, Rx 0*
-        0BB - Tx 45*, Rx 45*
-        1AA - Tx 90*, Rx 0*
-        1AB - Tx 90*, Rx 45*
-        1BA - Tx -45*, Rx 0*
-        1BB - Tx -45*, Rx 45*
-    each with its own probability of measuring a 1 or 0.
-    The array called PROBABILITIES is formatted ["state", p(0), dp(0)]
-    Which outlines the statistics of measuring a 1 or a 0 for a given system
-'''
 
 
 # User Variables
 import numpy as np
 import matplotlib.pyplot as plt
+from qkd.constants import PROBABILITIES_LOW as PROBABILITIES
 debug = False
 log = True
 DESIRED_LENGTH = 1024
@@ -62,13 +37,7 @@ else:
     NUM_TEST = END - START + 1
 
 # System Variables
-PROBABILITIES = [
-    ['0AA', '0AB', '0BA', '0BB', '1AA', '1AB', '1BA', '1BB'],
-    [0.984194058, 0.460664777, 0.52466991, 0.981594554,
-        0.001551774, 0.511767302, 0.467991511, 0.000921125],
-    [0.0019738, 0.00120231, 0.0012733, 0.0019991,
-        0.0008767, 0.0012933, 0.0011976, 0.0008773]
-]
+
 
 
 def generate_bits(length):
