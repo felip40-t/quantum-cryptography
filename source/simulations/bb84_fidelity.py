@@ -13,12 +13,20 @@ Last Updated: 04/05/2026 by Felipe Tcach
 @author: Charlie Fynn Perkins, UID: 10839865 0
 """
 
-
-
-# User Variables
 import numpy as np
 import matplotlib.pyplot as plt
-from qkd.constants import PROBABILITIES_LOW as PROBABILITIES
+import pandas as pd
+import random
+import argparse
+
+
+from qkd.constants import (
+    PROBABILITIES_LOW, PROBABILITIES_HIGH, REPEATS, N
+)
+from qkd.utils import (
+    generate_bits, check_keys
+)
+
 debug = False
 log = True
 DESIRED_LENGTH = 1024
@@ -35,13 +43,6 @@ if SIMULATE:
     NUM_TEST = END - START
 else:
     NUM_TEST = END - START + 1
-
-# System Variables
-
-
-
-def generate_bits(length):
-    return np.random.randint(2, size=length)
 
 
 def comparison_var(length):
@@ -201,16 +202,16 @@ if __name__ == "__main__":
     success_ratio_means_x = [12]
     half_point = 0
 
-    # j = 0
-    # for i in range(len(key_lengths) * REPEAT):
-    #     length = key_lengths[j]
-    #     result = run_experiment(length)
-    #     key_success.append(result[0])
-    #     transmission_success.append(result[1])
-    #     graph_keys.append(length * 2)
+    j = 0
+    for i in range(len(key_lengths) * REPEAT):
+        length = key_lengths[j]
+        result = run_experiment(length)
+        key_success.append(result[0])
+        transmission_success.append(result[1])
+        graph_keys.append(length * 2)
 
-    #     if (i + 1) % REPEAT == 0 and i != 0:
-    #         j += 1
+        if (i + 1) % REPEAT == 0 and i != 0:
+            j += 1
     if SIMULATE:
         j = 0
         for i in range(len(key_lengths) * REPEAT):

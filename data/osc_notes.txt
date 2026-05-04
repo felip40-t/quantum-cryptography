@@ -1,1 +1,0 @@
-The oscilloscope can measure to at least 200MHz i.e. 200Mbit

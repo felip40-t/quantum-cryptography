@@ -27,8 +27,22 @@ Definitions:
         1BA - Tx -45*, Rx 0*
         1BB - Tx -45*, Rx 45*
     each with its own probability of measuring a 1 or 0.
+
+    For B92 protocol, Alice only sends states 0A = (0) and 0B = (1),
+    but Bob still uses both bases to measure, so we have the following scenarios:
+        0AA - Tx 0*, Rx 0*
+        0AB - Tx 0*, Rx 45*
+        0BA - Tx 45*, Rx 0*
+        0BB - Tx 45*, Rx 45*.
+    For cases 0AA and 0BB, Bob should make a measurement of 0 or 1 respectively,
+    while for cases 0AB and 0BA, Bob should omit the bit, as he cannot make a 
+    conclusive measurement.
+
 '''
 """
+
+REPEATS = 100 # number of times to repeat the Monte Carlo simulation.
+N = 1000 # number of bits in Alice's starting key
 
 PROBABILITIES_LOW = {
     '0AA': (0.984194058, 0.0019738),
