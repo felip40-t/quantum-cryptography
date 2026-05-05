@@ -4,18 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project context
 
-Python code and data for a 2023 lab project on the BB84 and B92 quantum key distribution (QKD) protocols. The active branch (`cleanup`) is reorganising and consolidating the original lab submission without altering its scientific content.
+Python code and data for a 2023 lab project on the BB84 and B92 quantum key distribution (QKD) protocols. The active branch is reorganising and consolidating the original lab submission without altering its scientific content.
 
 ## Running the pipeline
 
-The Makefile is the primary way to run the full B92 simulate-then-plot pipeline:
+The Makefile is the primary way to run the full simulate-then-plot pipeline for both protocols and both error regimes:
 
 ```
-make simulate    # run B92 Monte Carlo for both regimes
-make plot        # plot results for both regimes (requires CSVs from simulate)
-make all         # simulate + plot (default target)
-make clean       # remove generated CSVs and PDFs
-make help        # list all targets
+make all             # simulate + plot for B92 and BB84, low and high regimes (default)
+make simulate        # run B92 and BB84 simulations for both regimes
+make plot            # plot B92 and BB84 results for both regimes
+make clean           # remove generated CSVs and PDFs
+make help            # list all targets
+```
+
+Per-protocol and per-regime targets exist for both stages:
+
+```
+make simulate-b92 / simulate-bb84
+make simulate-b92-low / simulate-b92-high / simulate-bb84-low / simulate-bb84-high
+make plot-b92 / plot-bb84
+make plot-b92-low / plot-b92-high / plot-bb84-low / plot-bb84-high
 ```
 
 The Makefile reads `N` and `REPEATS` directly from `constants.py` so filenames stay in sync automatically. It uses `.venv/bin/python` and sets `PYTHONPATH=source`.
@@ -25,11 +34,13 @@ Individual scripts can also be run directly from the `source/` directory:
 ```
 cd source
 python -m simulations.b92_sim --regime low
-python -m plotting.b92_graph --regime high
+python -m simulations.bb84_sim --regime high
+python -m plotting.fidelity_graph --protocol b92 --regime low
+python -m plotting.fidelity_graph --protocol bb84 --regime high
 python -m plotting.photon_probability --regime high
 ```
 
-`b92_sim.py`, `b92_graph.py`, and `photon_probability.py` all accept `--regime {low,high}`.
+Both simulation scripts accept `--regime {low,high}`. `fidelity_graph.py` accepts `--protocol {b92,bb84}` and `--regime {low,high}`. `photon_probability.py` accepts `--regime {low,high}`.
 
 ## Setup
 
@@ -43,16 +54,12 @@ A `.venv/` is already present at the repo root.
 
 The code separates three concerns:
 
-- **[source/qkd/constants.py](source/qkd/constants.py)** — the single source of truth for simulation inputs. Defines `PROBABILITIES_LOW` and `PROBABILITIES_HIGH` as dicts keyed by 8 qubit/basis/measurement combinations (`'0AA'`, `'0AB'`, ..., `'1BB'`), each mapping to `(probability, uncertainty)`. Also defines `N` (Alice's starting key length), `REPEATS` (Monte Carlo repeats), and `B92_STATE_ORDER` (the 4 B92 states in case-index order). The header docstring documents the `<bit><tx_basis><rx_basis>` key convention and is the authoritative reference for what each state means.
-- **[source/qkd/utils.py](source/qkd/utils.py)** — protocol-agnostic helpers: `generate_bits`, `check_keys`, `renormalise_probabilities` (combines matched basis pairs so probabilities sum to 1), `pack_probabilities` (calls `renormalise_probabilities` then packs the 4 B92 states into two float arrays indexed by `case = 2*alice_basis + bob_basis`).
-- **[source/simulations/](source/simulations/)** — Monte Carlo drivers. Each script generates random keys/bases, looks up per-state probabilities from `constants.py`, draws a normally distributed sample around `(prob, uncertainty)` for each bit, and compares Alice's key to Bob's reconstructed key. Writes CSVs to `data/b92_data/` at the repo root.
-- **[source/plotting/](source/plotting/)** — plotting scripts. `b92_graph.py` reads the simulation CSVs and produces fidelity PDFs. `photon_probability.py` reads directly from `constants.py` and produces the photon-probability bar charts. Both write PDFs to `results/` at the repo root.
+- **[source/qkd/constants.py](source/qkd/constants.py)** is the single source of truth for simulation inputs. It defines `PROBABILITIES_LOW` and `PROBABILITIES_HIGH` as dicts keyed by 8 qubit/basis/measurement combinations (`'0AA'`, `'0AB'`, ..., `'1BB'`), each mapping to `(probability, uncertainty)`. It also defines `N` (Alice's starting key length), `REPEATS` (Monte Carlo repeats), and `B92_STATE_ORDER` (the 4 B92 states in case-index order). The header docstring documents the `<bit><tx_basis><rx_basis>` key convention and is the authoritative reference for what each state means.
+- **[source/qkd/utils.py](source/qkd/utils.py)** holds protocol-agnostic helpers: `generate_bits`, `check_keys`, `renormalise_probabilities` (combines matched basis pairs so probabilities sum to 1), and `pack_probabilities` (calls `renormalise_probabilities` then packs the 4 B92 states into two float arrays indexed by `case = 2*alice_basis + bob_basis`).
+- **[source/simulations/](source/simulations/)** contains the Monte Carlo drivers: `b92_sim.py` and `bb84_sim.py`. Each script generates random keys/bases, looks up per-state probabilities from `constants.py`, draws a normally distributed sample around `(prob, uncertainty)` for each bit, and compares Alice's key to Bob's reconstructed key. They write CSVs to `data/b92_data/` and `data/bb84_data/` respectively, at the repo root.
+- **[source/plotting/](source/plotting/)** contains the plotting scripts. `fidelity_graph.py` reads the simulation CSVs for either protocol (selected by `--protocol`) and produces fidelity PDFs. `photon_probability.py` reads directly from `constants.py` and produces the photon-probability bar charts. Both write PDFs to `results/` at the repo root.
 
-The probability values in `constants.py` are derived from real oscilloscope measurements of polarised laser intensity ratios; the simulations treat those ratios as single-photon detection probabilities. If `constants.py` values change, all simulations and plots downstream should be regenerated.
-
-## `bb84_fidelity.py` status
-
-[source/simulations/bb84_fidelity.py](source/simulations/bb84_fidelity.py) is not yet cleaned up. It references a `PROBABILITIES` tuple (not the dict in `constants.py`) inside `run_experiment`, has a `SIMULATE` flag switching between live simulation and a hardcoded CSV path, and writes its figure to `..//results//Fidelity_16.png`. Its title and CSV filename both say "B92" despite the file being named `bb84_fidelity.py`. Expect to refactor it to mirror the structure of `b92_sim.py` before relying on its output.
+The probability values in `constants.py` are derived from real oscilloscope measurements of polarised laser intensity ratios; the simulations treat those ratios as single-photon detection probabilities. If `constants.py` values change, all simulations and plots downstream should be regenerated (`make clean && make all`).
 
 ## Writing style for docs/comments in this repo
 

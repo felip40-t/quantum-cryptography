@@ -43,10 +43,11 @@ while the raw experimental values in `constants.py` are preserved unchanged.
 
 ```
 quantum-cryptography/
-├── Makefile                         # simulate-then-plot pipeline for B92
+├── Makefile                         # simulate-then-plot pipeline for B92 and BB84
 ├── requirements.txt
 ├── data/
-│   └── b92_data/                    # CSV output from b92_sim.py
+│   ├── b92_data/                    # CSV output from b92_sim.py
+│   └── bb84_data/                   # CSV output from bb84_sim.py
 ├── results/                         # PDF figures used in the report
 └── source/
     ├── qkd/                         # shared package (import as qkd.*)
@@ -54,33 +55,36 @@ quantum-cryptography/
     │   └── utils.py                 # generate_bits, check_keys, pack_probabilities
     ├── simulations/
     │   ├── b92_sim.py               # B92 Monte Carlo, writes to data/b92_data/
-    │   └── bb84_fidelity.py         # BB84 fidelity (not yet cleaned up)
+    │   └── bb84_sim.py              # BB84 Monte Carlo, writes to data/bb84_data/
     └── plotting/
-        ├── b92_graph.py             # reads b92_data CSVs, writes fidelity PDFs
+        ├── fidelity_graph.py        # reads simulation CSVs for either protocol
         └── photon_probability.py    # bar chart of raw photon probabilities
 ```
 
 ## Running the pipeline
 
 A Makefile at the repository root coordinates the full simulate-then-plot
-workflow for the B92 protocol. It reads `N` and `REPEATS` directly from
-`constants.py` so output filenames always stay in sync.
+workflow for both the B92 and BB84 protocols across both error regimes. It
+reads `N` and `REPEATS` directly from `constants.py` so output filenames
+always stay in sync.
 
 ```
-make simulate    # run B92 Monte Carlo for both error regimes
+make all         # simulate + plot for both protocols and both regimes (default)
+make simulate    # run B92 and BB84 Monte Carlo for both regimes
 make plot        # plot results for both regimes (requires CSVs from simulate)
-make all         # simulate then plot (default target)
 make clean       # remove generated CSVs and PDFs
 make help        # list all targets
 ```
 
-Individual targets are also available:
+Per-protocol and per-regime targets are also available:
 
 ```
-make simulate-low    # low error regime only
-make simulate-high   # high error regime only
-make plot-low        # plot low error regime only
-make plot-high       # plot high error regime only
+make simulate-b92 / simulate-bb84
+make simulate-b92-low / simulate-b92-high
+make simulate-bb84-low / simulate-bb84-high
+make plot-b92 / plot-bb84
+make plot-b92-low / plot-b92-high
+make plot-bb84-low / plot-bb84-high
 ```
 
 Scripts can also be run directly from the `source/` directory:
@@ -88,7 +92,9 @@ Scripts can also be run directly from the `source/` directory:
 ```
 cd source
 python -m simulations.b92_sim --regime low
-python -m plotting.b92_graph --regime high
+python -m simulations.bb84_sim --regime high
+python -m plotting.fidelity_graph --protocol b92 --regime low
+python -m plotting.fidelity_graph --protocol bb84 --regime high
 python -m plotting.photon_probability --regime high
 ```
 

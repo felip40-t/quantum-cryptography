@@ -11,7 +11,7 @@ import pandas as pd
 
 from pathlib import Path
 from qkd.constants import REPEATS, N, PROBABILITIES_LOW, PROBABILITIES_HIGH, B92_STATE_ORDER
-from qkd.utils import generate_bits, check_keys, pack_probabilities
+from qkd.utils import generate_bits, check_keys, pack_probabilities, save_data
 
 def results(alice_basis, bob_basis, probs_arr, errs_arr):
     """
@@ -36,20 +36,6 @@ def results(alice_basis, bob_basis, probs_arr, errs_arr):
     # Bob's key bit is the opposite of his basis for kept bits.
     bob_key = (1 - bob_basis[kept]).astype(np.int8)
     return bob_key, kept
-
-
-def save_data(fidelities, initial_lengths, incorrects, final_len, regime):
-    """
-    Function to save the data from the simulations in a csv file.
-    """
-    df = pd.DataFrame({'Initial Key Length': initial_lengths, 'Correctness': fidelities, 'Incorrect Bits': incorrects, 'Final Key Length': final_len})
-    output_path = (
-        Path(__file__).parent.parent.parent / 'data' / 'b92_data' /
-        f'{N}_bits_{REPEATS}_repeats_{regime}.csv'
-    )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False)
-
 
 def main():
     parser = argparse.ArgumentParser(description=
@@ -89,7 +75,7 @@ def main():
         incorrects[i] = incorrect
         final_lengths[i] = length
 
-    save_data(fidelities, initial_lengths, incorrects, final_lengths, args.regime)
+    save_data(fidelities, initial_lengths, incorrects, final_lengths, args.regime, b92=True)
 
     elapsed = time.perf_counter() - start
     print(f"b92_sim ({args.regime} regime) completed in {elapsed:.3f} s for {n_runs} runs.")
