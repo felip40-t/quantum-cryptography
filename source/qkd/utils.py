@@ -1,75 +1,55 @@
 """
-Script containing utility functions for the QKD simulations. 
+Script containing utility functions for the QKD simulations.
 """
 
 import numpy as np
+from qkd.constants import B92_STATE_ORDER
 
 def generate_bits(n):
     """
-    Generate a bit string.
+    Generate a random bit string as an int8 numpy array of length n.
     """
-    return [random.randint(0,1) for _ in range(n)]
-
-def observations(qubits, bases):
-    """
-    Function to generate the observations of Bob based on the qubits sent by Alice
-    and the bases used by Bob to measure. Returns a list of tuples containing
-    the qubit sent and the basis used for each bit.
-    """
-    return list(zip(qubits, bases))
+    return np.random.randint(0, 2, size=n, dtype=np.int8)
 
 def check_keys(key1, key2):
     """
-    Function to check the correctness of Bob's key compared to Alice's key. 
-    Returns the percentage of bits that are correct, the number of incorrect bits,
+    Function to check the correctness of Bob's key compared to Alice's key.
+    Returns the percentage of bits that match, the number of incorrect bits,
     and the total length of the keys.
     """
-    counter = 0
-    for b in enumerate(key1):
-        if b[1] == key2[b[0]]:
-            counter += 1
-    correctness = (counter/len(key1))*100
-    return correctness, counter, len(key1)
+    key1 = np.asarray(key1)
+    key2 = np.asarray(key2)
+    counter = int(np.sum(key1 == key2))
+    correctness = (counter / len(key1)) * 100
+    incorrect = len(key1) - counter
+    return correctness, incorrect, len(key1)
 
-def slice_probabilities(probs_dict):
-    """
-    Function to slice the probabilities and uncertainties from the probabilities
-    dictionary to use in the B92 protocol. Returns a new dictionary with only 
-    the relevant probabilities and uncertainties.
-    """
-    new_probs = {}
-    for k in probs_dict:
-        if k in ['0AA', '0AB', '0BA', '0BB']:
-            new_probs[k] = probs_dict[k]
-    return new_probs
 
-def weighted_probabilities(probs1, uncerts1, probs2, uncerts2):
+def renormalise_probabilities(prob_dict):
     """
-    Function to calculate the weighted probabilities and uncertainties 
-    from two sets of probabilities and uncertainties.
-    Returns the new probabilities and uncertainties.
+    Function to renormalise the probabilities in the given dictionary so that
+    they sum to 1 for each key.
+    For example combine '0AA' and '1AA' to get the probabilities for the case where
+    Alice sends in basis A and Bob measures in basis A, regardless of the bit sent.
     """
-    new_probs = []
-    new_uncs = []
-    for i in range(len(probs1)):
-        val = np.array([probs1[i], probs2[i]])
-        error = np.array([uncerts1[i], uncerts2[i]])
-        wmtop = np.sum(val/(error**2))
-        wmbot = np.sum(1/(error**2))
-        weighted_mean = wmtop/wmbot
-        error_in_wm = np.sqrt(1/(np.sum(1/(error**2))))
-        new_probs.append(weighted_mean)
-        new_uncs.append(error_in_wm)
-    return new_probs,new_uncs
+    renorm_dict = {}
+    for state in B92_STATE_ORDER:
+        anti_state = ('1' if state[0] == '0' else '0') + state[1:]
+        p0, e0 = prob_dict[state]
+        p1, e1 = prob_dict[anti_state]
+        total_p = p0 + p1
+        new_p = p0 / total_p
+        new_e = np.sqrt((p1 * e0)**2 + (p0 * e1)**2) / (total_p**2)
+        renorm_dict[state] = (new_p, new_e)
 
-def alice_key(qubits,omit):
+    return renorm_dict
+
+def pack_probabilities(prob_dict):
     """
-    Function to generate Alice's key based on the qubits sent and the bits that were omitted.
+    Pack the 4-state B92 probability dict into two float arrays indexed by
+    case = 2*alice_basis + bob_basis.
     """
-    final_key = []
-    for a in omit:
-        qubits[a] = 'omit'
-    for j in enumerate(qubits):
-        if j[1] == 0 or j[1] == 1:
-            final_key.append(j[1])
-    return final_key
+    prob_dict = renormalise_probabilities(prob_dict)
+    probs = np.array([prob_dict[k][0] for k in B92_STATE_ORDER], dtype=np.float64)
+    errs = np.array([prob_dict[k][1] for k in B92_STATE_ORDER], dtype=np.float64)
+    return probs, errs

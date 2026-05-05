@@ -42,7 +42,7 @@ Definitions:
 """
 
 REPEATS = 100 # number of times to repeat the Monte Carlo simulation.
-N = 1000 # number of bits in Alice's starting key
+N = 2048 # number of bits in Alice's starting key
 
 PROBABILITIES_LOW = {
     '0AA': (0.984194058, 0.0019738),
@@ -65,3 +65,7 @@ PROBABILITIES_HIGH = {
     '1BA': (0.568813292, 0.029498697),
     '1BB': (0.006117577, 0.022383054)
 }
+
+# Order matches case = 2*alice_basis + bob_basis (0AA=0, 0AB=1, 0BA=2, 0BB=3).
+B92_STATE_ORDER = ('0AA', '0AB', '0BA', '0BB')
+

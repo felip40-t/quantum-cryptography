@@ -322,11 +322,11 @@ if __name__ == "__main__":
             ax.scatter(key_length_arr[i], transmission_success_arr[i], color=colors[i],
                        linestyle='None', s=0.25)
 
-    # ax2.plt(key_lengths, success_ratio, color="indigo",
-    #        linestyle="dotted", label="Mean Success Ratio")
+    ax2.plot(key_lengths, success_ratio, color="indigo",
+           linestyle="dotted", label="Mean Success Ratio")
 
-    # ax.scatter(key_lengths, key_success, color="teal",
-    #           marker=".", linestyle='None', label="Key Length Success")
+    ax.scatter(key_lengths, key_success, color="teal",
+              marker=".", linestyle='None', label="Key Length Success")
 
     ax.axhline(y=mean_success, color='navy',
                linestyle='-', label="Mean Correctness (convergent): " + str(round(mean_success, 3)))

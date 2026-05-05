@@ -1,92 +1,53 @@
-# -*- coding: utf-8 -*-
 """
-Created on Thu Oct 26 12:33:30 2023
-
-@author: felipe
-BB92 code
+Simulate the B92 protocol for different error regimes and save the data.
 
 """
 
+import argparse
+import time
 
 import numpy as np
-import random
-import argparse
-import matplotlib.pyplot as plt
 import pandas as pd
 
 from pathlib import Path
-from qkd.constants import REPEATS, N, PROBABILITIES_LOW, PROBABILITIES_HIGH
-from qkd.utils import (
-    generate_bits, check_keys, observations, 
-    slice_probabilities, alice_key
-)
+from qkd.constants import REPEATS, N, PROBABILITIES_LOW, PROBABILITIES_HIGH, B92_STATE_ORDER
+from qkd.utils import generate_bits, check_keys, pack_probabilities
 
-
-def results(observation, prob_dict):
+def results(alice_basis, bob_basis, probs_arr, errs_arr):
     """
-    Function to generate Bob's key based on the observations and the probabilities.
+    Vectorised Monte Carlo step. For each bit, draws a per-observation
+    probability sample around (prob, error), compares against a uniform draw
+    to decide whether Bob's measurement is the on-axis (omitted) outcome or
+    the off-axis (kept) outcome.
+
+    Returns Bob's reconstructed key and a boolean mask marking which input
+    bits were kept (used to filter Alice's key in step with Bob).
     """
-    unfiltered_key = []
-    clean_key = []
-    omitted_bits = []
-
-    for ob in observation:
-        # Generate new probabilities based on the uncertainties for each observation.
-        new_probs = {}
-        for key, p in prob_dict.items():
-            prob = p[0]
-            error = p[1]
-            new_p = random.normalvariate(prob, error)
-            if new_p > 1:
-                new_p = 1
-            elif new_p < 0:
-                new_p = 0
-            new_probs[key] = new_p
-        rando_num = random.uniform(0,1)
-
-        # Case 0AA - Tx = 0', Rx = 0'
-        if ob == (0,0):
-            if rando_num < new_probs['0AA']:
-                unfiltered_key.append('omit') # Measured 0'
-            else:
-                unfiltered_key.append(1) # Measured 90'
-        # Case 0AB - Tx = 0', Rx = 45'
-        elif ob == (0,1):
-            if rando_num < new_probs['0AB']:
-                unfiltered_key.append('omit') # Measured 45'
-            else:
-                unfiltered_key.append(0) # Measured -45'
-        # Case 0BA - Tx = 45', Rx = 0'
-        elif ob == (1,0):
-            if rando_num < new_probs['0BA']:
-                unfiltered_key.append('omit') # Measured 0'
-            else:
-                unfiltered_key.append(1) # Measured 90'
-        # Case 0BB - Tx = 45', Rx = 45'
-        elif ob == (1,1):
-            if rando_num < new_probs['0BB']:
-                unfiltered_key.append('omit') # Measured 45'
-            else:
-                unfiltered_key.append(0) # Measured -45'
-    
-    for j in enumerate(unfiltered_key):
-        if j[1] == 0 or j[1] == 1:
-            clean_key.append(j[1])
-        else:
-            omitted_bits.append(j[0])
-    
-    return clean_key, omitted_bits
+    # Map (alice_basis, bob_basis) pairs to case indices for probability lookup.
+    case = 2 * alice_basis.astype(np.int64) + bob_basis.astype(np.int64)
+    # Generate sample probabilities for each bit based on case-specific mean and error.
+    sampled_p = np.random.normal(probs_arr[case], errs_arr[case])
+    # Clip probabilities to [0, 1] to ensure valid comparisons.
+    np.clip(sampled_p, 0.0, 1.0, out=sampled_p)
+    rand_vals = np.random.random(case.shape[0])
+    # Boolean mask for which bits are kept: Bob's measurement is kept if the random
+    # value is greater than or equal to the sampled probability. Check README for details.
+    kept = rand_vals >= sampled_p
+    # Bob's key bit is the opposite of his basis for kept bits.
+    bob_key = (1 - bob_basis[kept]).astype(np.int8)
+    return bob_key, kept
 
 
-def save_data(fidelities, bit_lengths, incorrects, final_len):
+def save_data(fidelities, initial_lengths, incorrects, final_len, regime):
     """
     Function to save the data from the simulations in a csv file.
     """
-    df = pd.DataFrame({'Initial Key Length': bit_lengths, 'Correctness': fidelities, 'Incorrect Bits': incorrects, 'Final Key Length': final_len})
+    df = pd.DataFrame({'Initial Key Length': initial_lengths, 'Correctness': fidelities, 'Incorrect Bits': incorrects, 'Final Key Length': final_len})
     output_path = (
-        Path(__file__).parent.parent / 'data' / 'b92_data' /
-        f'{N}_bits_{REPEATS}_repeats.csv'
+        Path(__file__).parent.parent.parent / 'data' / 'b92_data' /
+        f'{N}_bits_{REPEATS}_repeats_{regime}.csv'
     )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
 
 
@@ -102,33 +63,37 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.regime == "low":
-        probs = slice_probabilities(PROBABILITIES_LOW)
-    elif args.regime == "high":
-        probs = slice_probabilities(PROBABILITIES_HIGH)
+    start = time.perf_counter()
 
-    percents = []
-    bit_lengths = []
-    incorrects = []
-    final_length = []
+    if args.regime == "high":
+        probs_arr, errs_arr = pack_probabilities(PROBABILITIES_HIGH)
+    else:
+        probs_arr, errs_arr = pack_probabilities(PROBABILITIES_LOW)
 
-    for i in range(REPEATS):
-        for j in np.arange(32,N,4):
-            bit_lengths.append(j)
+    initial_lengths = np.tile(np.arange(32, N, 4), REPEATS)
+    n_runs = len(initial_lengths)
 
-    for k in bit_lengths:
-        alice_qubits = generate_bits(k)
-        bob_bases = generate_bits(k)
+    fidelities = np.empty(n_runs, dtype=np.float64)
+    incorrects = np.empty(n_runs, dtype=np.int64)
+    final_lengths = np.empty(n_runs, dtype=np.int64)
 
-        obs = observations(alice_qubits, bob_bases)
-        bob_key, omit = results(obs, probs, uncerts)
-        alice_key = alice_key(alice_qubits, omit)
+    for i, k in enumerate(initial_lengths):
+        alice_basis = generate_bits(k)
+        bob_basis = generate_bits(k)
 
-        percents.append(check_keys(alice_key, bob_key)[0])
-        incorrects.append(check_keys(alice_key, bob_key)[1])
-        final_length.append(check_keys(alice_key, bob_key)[2])
-    
-    save_data(percents, bit_lengths, incorrects, final_length)
+        bob_key, kept = results(alice_basis, bob_basis, probs_arr, errs_arr)
+        alice_key = alice_basis[kept]
+
+        correctness, incorrect, length = check_keys(alice_key, bob_key)
+        fidelities[i] = correctness
+        incorrects[i] = incorrect
+        final_lengths[i] = length
+
+    save_data(fidelities, initial_lengths, incorrects, final_lengths, args.regime)
+
+    elapsed = time.perf_counter() - start
+    print(f"b92_sim ({args.regime} regime) completed in {elapsed:.3f} s for {n_runs} runs.")
+
 
 if __name__ == "__main__":
     main()

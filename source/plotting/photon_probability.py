@@ -90,9 +90,10 @@ def main():
     ax.set_ylim(0, 120)
 
     output_path = (
-        Path(__file__).parent.parent / 'results' /
+        Path(__file__).parent.parent.parent / 'results' /
         f'photon_probabilities_{args.regime}.pdf'
     )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=1000)
 
 
