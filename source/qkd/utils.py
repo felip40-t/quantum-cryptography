@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from qkd.constants import B92_STATE_ORDER, N, REPEATS
+from qkd.constants import B92_STATE_ORDER, N, RUNS
 
 def generate_bits(n: int):
     """
@@ -28,7 +28,7 @@ def check_keys(key1: np.ndarray, key2: np.ndarray):
     incorrect = len(key1) - counter
     return correctness, incorrect, len(key1)
 
-def save_data(fidelities: np.ndarray, initial_lengths: np.ndarray, incorrects: np.ndarray, final_len: np.ndarray, regime: str, b92: bool):
+def save_data(fidelities: np.ndarray, initial_lengths: np.ndarray, incorrects: np.ndarray, final_len: np.ndarray, regime: str, b92: bool, norm: bool):
     """
     Function to save the data from the simulations in a csv file.
     """
@@ -37,9 +37,11 @@ def save_data(fidelities: np.ndarray, initial_lengths: np.ndarray, incorrects: n
     else:
         protocol = 'bb84'
     df = pd.DataFrame({'Initial Key Length': initial_lengths, 'Correctness': fidelities, 'Incorrect Bits': incorrects, 'Final Key Length': final_len})
+    if norm:
+        regime += '_norm'
     output_path = (
         Path(__file__).parent.parent.parent / 'data' / f'{protocol}_data' /
-        f'{N}_bits_{REPEATS}_repeats_{regime}.csv'
+        f'{N}_bits_{RUNS}_runs_{regime}.csv'
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
@@ -63,12 +65,13 @@ def renormalise_probabilities(prob_dict: dict):
 
     return renorm_dict
 
-def pack_probabilities(prob_dict: dict):
+def pack_probabilities(prob_dict: dict, norm: bool = False):
     """
     Pack the 4-state B92 probability dict into two float arrays indexed by
     case = 2*alice_basis + bob_basis.
     """
-    prob_dict = renormalise_probabilities(prob_dict)
+    if norm:
+        prob_dict = renormalise_probabilities(prob_dict)
     probs = np.array([prob_dict[k][0] for k in B92_STATE_ORDER], dtype=np.float64)
     errs = np.array([prob_dict[k][1] for k in B92_STATE_ORDER], dtype=np.float64)
     return probs, errs

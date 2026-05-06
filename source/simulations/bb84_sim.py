@@ -7,10 +7,10 @@ import time
 import numpy as np
 
 from qkd.constants import (
-    PROBABILITIES_LOW, PROBABILITIES_HIGH, REPEATS, N
+    PROBABILITIES_LOW, PROBABILITIES_HIGH, RUNS, N
 )
 from qkd.utils import (
-    generate_bits, check_keys, save_data,
+    generate_bits, check_keys, save_data, renormalise_probabilities
 )
 
 def results(alice_bits, alice_basis, bob_basis, probs_dict):
@@ -46,6 +46,11 @@ def main():
         default="low",
         help="Error regime to use for probabilities and uncertainties (default: low).",
     )
+    parser.add_argument(
+        "--norm",
+        action="store_true",
+        help="Renormalise probabilities to ensure valid distributions (default: False).",
+    )
     args = parser.parse_args()
 
     start = time.perf_counter()
@@ -55,7 +60,10 @@ def main():
     else:
         probs_dict = PROBABILITIES_LOW
 
-    initial_lengths = np.tile(np.arange(32, N, 4), REPEATS)
+    if args.norm:
+        probs_dict = renormalise_probabilities(probs_dict)
+
+    initial_lengths = np.tile(np.arange(32, N, 4), RUNS)
     n_runs = len(initial_lengths)
 
     fidelities = np.empty(n_runs, dtype=np.float64)
@@ -78,7 +86,7 @@ def main():
         incorrects[i] = incorrect
         final_lengths[i] = final_length
 
-    save_data(fidelities, initial_lengths, incorrects, final_lengths, args.regime, b92=False)
+    save_data(fidelities, initial_lengths, incorrects, final_lengths, args.regime, b92=False, norm=args.norm)
 
     elapsed = time.perf_counter() - start
     print(f"bb84_sim ({args.regime} regime) completed in {elapsed:.3f} s for {n_runs} runs.")

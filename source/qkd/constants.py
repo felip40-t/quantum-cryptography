@@ -39,7 +39,7 @@ Definitions:
 '''
 """
 
-REPEATS = 100 # number of times to repeat the Monte Carlo simulation.
+RUNS = 100 # number of times to repeat the Monte Carlo simulation.
 N = 2048 # number of bits in Alice's starting key
 
 PROBABILITIES_LOW = {

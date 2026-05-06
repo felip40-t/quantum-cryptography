@@ -10,10 +10,10 @@ import numpy as np
 import pandas as pd
 
 from pathlib import Path
-from qkd.constants import REPEATS, N, PROBABILITIES_LOW, PROBABILITIES_HIGH, B92_STATE_ORDER
+from qkd.constants import RUNS, N, PROBABILITIES_LOW, PROBABILITIES_HIGH, B92_STATE_ORDER
 from qkd.utils import generate_bits, check_keys, pack_probabilities, save_data
 
-def results(alice_basis, bob_basis, probs_arr, errs_arr):
+def results(alice_basis: np.ndarray, bob_basis: np.ndarray, probs_arr: np.ndarray, errs_arr: np.ndarray):
     """
     Vectorised Monte Carlo step. For each bit, draws a per-observation
     probability sample around (prob, error), compares against a uniform draw
@@ -47,16 +47,22 @@ def main():
         default="low",
         help="Error regime to use for probabilities and uncertainties (default: low).",
     )
+    parser.add_argument(
+        "--norm",
+        action="store_true",
+        help="Renormalise probabilities to ensure valid distributions (default: False).",
+    )
+    
     args = parser.parse_args()
 
     start = time.perf_counter()
 
     if args.regime == "high":
-        probs_arr, errs_arr = pack_probabilities(PROBABILITIES_HIGH)
+        probs_arr, errs_arr = pack_probabilities(PROBABILITIES_HIGH, norm=args.norm)
     else:
-        probs_arr, errs_arr = pack_probabilities(PROBABILITIES_LOW)
+        probs_arr, errs_arr = pack_probabilities(PROBABILITIES_LOW, norm=args.norm)
 
-    initial_lengths = np.tile(np.arange(32, N, 4), REPEATS)
+    initial_lengths = np.tile(np.arange(32, N, 4), RUNS)
     n_runs = len(initial_lengths)
 
     fidelities = np.empty(n_runs, dtype=np.float64)
@@ -75,7 +81,7 @@ def main():
         incorrects[i] = incorrect
         final_lengths[i] = length
 
-    save_data(fidelities, initial_lengths, incorrects, final_lengths, args.regime, b92=True)
+    save_data(fidelities, initial_lengths, incorrects, final_lengths, args.regime, b92=True, norm=args.norm)
 
     elapsed = time.perf_counter() - start
     print(f"b92_sim ({args.regime} regime) completed in {elapsed:.3f} s for {n_runs} runs.")

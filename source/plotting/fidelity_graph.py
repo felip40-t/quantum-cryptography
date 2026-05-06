@@ -12,7 +12,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.signal import savgol_filter
-from qkd.constants import N, REPEATS
+from qkd.constants import N, RUNS
+
+
 
 def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime, protocol):
     """
@@ -24,7 +26,7 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
     plotted against the initial key length on the x-axis.
 
     The mean and standard deviation lines are computed only over the
-    convergent portion of the data (the final two-thirds), since short keys
+    convergent portion of the data (the final three-quarters), since short keys
     produce high variance that skews the statistics.
 
     Parameters
@@ -44,12 +46,12 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
 
     Output
     ------
-    Saves a PDF to source/results/{protocol}_Fidelity_{N}_bits_{REPEATS}_repeats_{regime}.pdf.
+    Saves a PDF to source/results/{protocol}_Fidelity_{N}_bits_{RUNS}_runs_{regime}.pdf.
     """
-    # Skip the first third when computing summary statistics: short keys have
+    # Skip the first quarter when computing summary statistics: short keys have
     # not yet converged and would pull the mean/std away from the long-key
     # asymptote we actually care about.
-    cutoff = len(correctness) // 3
+    cutoff = len(correctness) // 4
     mean_success = np.mean(correctness.iloc[cutoff:])
     dev_success = np.std(correctness.iloc[cutoff:])
 
@@ -94,46 +96,69 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
 
     ax.set(title=f"{protocol.upper()} Fidelity Simulation - {regime.capitalize()} Error Regime")
     ax.set(xlabel="Desired Key Length, bits")
-    ax2.set(ylabel="Success Ratio, %")
+    ax2.set(ylabel="Success Ratio (SR), %")
     ax.set(ylabel="Fidelity, %")
 
     ax2.plot(success_ratio_means_x, smoothed_success_ratio_means,
-             linestyle="dotted", color="indigo", label="n = 0 Probability")
-
-    ax2.axvline(success_ratio_means_x[half_point], color="navy",
-                label="~50% Chance of Success", linestyle="dashdot")
+             linestyle="dotted", color="purple", label=f"Mean SR (smoothed)")
 
     for i in range(len(key_length_arr)):
         ax.scatter(key_length_arr[i], transmission_success_arr[i], color=colors[i],
-                    linestyle='None', s=0.25)
+                    linestyle='None', s=0.5, alpha=0.8, edgecolors='none',
+                    label=f"{labels[i]} Incorrect Bits")
 
-    # ax2.plot(desired_key_length, success_ratio, color="indigo",
-    #        linestyle="dotted", label="Mean Success Ratio")
+    ax.axhline(y=mean_success, color="navy", linestyle='-', label=f'Mean Fidelity (converged)')
 
-    # ax.scatter(desired_key_length, correctness, color="teal",
-    #           marker=".", linestyle='None', label="Key Length Success")
+    ax2.axvline(success_ratio_means_x[half_point], color="indigo",
+                linestyle="dashed", label="Half-metric", alpha=0.8)
+    ax2.axhline(y=50, color="indigo", linestyle="dashed", alpha=0.8)
 
-    ax.axhline(y=mean_success, color='navy',
-               linestyle='-', label="Mean Correctness (convergent): " + str(round(mean_success, 3)))
-    # ax.axhline(y=mean_success+dev_success, color='indigo',
-    #            linestyle='--', label="Standard Deviation (convergent): " + str(round(dev_success, 3)))
-    # ax.axhline(y=mean_success-dev_success, color='indigo',
-    #           linestyle='--')
-    print("Mean success after 1/3 was:", mean_success)
-    print("Standard Deviation after 1/3 was:", dev_success)
-    print("50% Chance Length At:", success_ratio_means_x[half_point])
-    ax.legend(loc="lower right")
-    ax2.legend(loc="lower left")
+    ax2.yaxis.set_major_locator(plt.MultipleLocator(10))
+
+    print("Mean fidelity after 1/4 was:", mean_success)
+    print("Standard Deviation after 1/4 was:", dev_success)
+    print("Half-metric:", success_ratio_means_x[half_point])
+
+    # Label the mean fidelity line directly on the left y-axis.
+    ax.annotate(
+        f'{round(mean_success, 3)}',
+        xy=(0, mean_success),
+        xycoords=('axes fraction', 'data'),
+        xytext=(-6, 0),
+        textcoords='offset points',
+        ha='right', va='center',
+        color="navy", fontsize=8,
+    )
+
+    # Label the 50%-success vertical line directly on the x-axis.
+    ax.annotate(
+        f'{int(round(success_ratio_means_x[half_point], 0))}',
+        xy=(success_ratio_means_x[half_point], 0),
+        xycoords=('data', 'axes fraction'),
+        xytext=(0, -6),
+        textcoords='offset points',
+        ha='center', va='top',
+        color="indigo", fontsize=8,
+    )
+
+    # Merge handles from both axes into a single legend placed outside the plot
+    # to the upper right of the right-hand y-axis so it doesn't overlap the data.
+    handles1, labels1 = ax.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(handles1 + handles2, labels1 + labels2,
+               loc='upper left', bbox_to_anchor=(1.07, 1), borderaxespad=0,
+               fontsize=8, markerscale=6, handlelength=1.2)
+
     ax.grid(alpha=0.5)
     plt.tight_layout()
     print("Saving plot to PDF...")
     output_path = (
         Path(__file__).parent.parent.parent / 'results' /
-        f'{protocol.upper()}_Fidelity_{N}_bits_{REPEATS}_repeats_{regime}.pdf'
+        f'{protocol.upper()}_Fidelity_{N}_bits_{RUNS}_runs_{regime}.pdf'
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        plt.savefig(output_path, dpi=600)
+        plt.savefig(output_path, dpi=600, bbox_inches='tight')
         print(f"Plot saved successfully to {output_path}")
     except Exception as e:
         print(f"Error saving plot: {e}")
@@ -154,12 +179,21 @@ def main():
         default="bb84",
         help="QKD protocol to plot (default: bb84).",
     )
+    parser.add_argument(
+        "--norm",
+        action="store_true",
+        help="Renormalise probabilities to ensure valid distributions (default: False)."
+    )
     args = parser.parse_args()
+
+    regime = args.regime
+    if args.norm:
+        regime += "_norm"
 
     # Load the data from the corresponding CSV file based on the selected regime.
     data_path = (
         Path(__file__).parent.parent.parent / 'data' / f'{args.protocol}_data' /
-        f'{N}_bits_{REPEATS}_repeats_{args.regime}.csv'
+        f'{N}_bits_{RUNS}_runs_{regime}.csv'
     )
     try:
         data = pd.read_csv(data_path)
@@ -173,7 +207,7 @@ def main():
     incorrect_bits = data['Incorrect Bits']
     final_key_length = data['Final Key Length']
 
-    plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, args.regime, args.protocol)
+    plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime, args.protocol)
 
 if __name__ == "__main__":
     main()
