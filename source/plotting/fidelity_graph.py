@@ -16,7 +16,7 @@ from qkd.constants import N, RUNS
 
 
 
-def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime, protocol):
+def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime, protocol, norm):
     """
     Plot fidelity and success ratio of the {protocol} simulation across key lengths.
 
@@ -43,6 +43,9 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
         Error regime used in the simulations ("low" or "high"), included in the plot title and output filename.
     protocol : str
         The QKD protocol being simulated (e.g., "bb84", "b92").
+    norm : bool
+        Whether the probabilities were renormalised to ensure valid distributions; included in the plot title and
+        output filename if True.
 
     Output
     ------
@@ -52,8 +55,9 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
     # not yet converged and would pull the mean/std away from the long-key
     # asymptote we actually care about.
     cutoff = len(correctness) // 4
-    mean_success = np.mean(correctness.iloc[cutoff:])
-    dev_success = np.std(correctness.iloc[cutoff:])
+    sample = correctness.iloc[cutoff:]
+    mean_success = sample.mean()
+    sem = sample.std(ddof=1) / np.sqrt(len(sample))
 
     desired_key_length = bit_lengths // 4 if protocol == "b92" else bit_lengths // 2
 
@@ -94,7 +98,7 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
               'seagreen']
     labels = ['= 0', '= 1', '= 2', '= 3', '= 4', '= 5', '> 5']
 
-    ax.set(title=f"{protocol.upper()} Fidelity Simulation - {regime.capitalize()} Error Regime")
+    ax.set(title=f"{protocol.upper()} Fidelity Simulation - {regime.capitalize()} Error Regime {'Normalised' if norm else ''}")
     ax.set(xlabel="Desired Key Length, bits")
     ax2.set(ylabel="Success Ratio (SR), %")
     ax.set(ylabel="Fidelity, %")
@@ -116,12 +120,12 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
     ax2.yaxis.set_major_locator(plt.MultipleLocator(10))
 
     print("Mean fidelity after 1/4 was:", mean_success)
-    print("Standard Deviation after 1/4 was:", dev_success)
+    print("SEM after 1/4 was:", sem)
     print("Half-metric:", success_ratio_means_x[half_point])
 
     # Label the mean fidelity line directly on the left y-axis.
     ax.annotate(
-        f'{round(mean_success, 3)}',
+        rf'{round(mean_success, 2)}',
         xy=(0, mean_success),
         xycoords=('axes fraction', 'data'),
         xytext=(-6, 0),
@@ -154,7 +158,7 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
     print("Saving plot to PDF...")
     output_path = (
         Path(__file__).parent.parent.parent / 'results' /
-        f'{protocol.upper()}_Fidelity_{N}_bits_{RUNS}_runs_{regime}.pdf'
+        f'{protocol.upper()}_Fidelity_{N}_bits_{RUNS}_runs_{regime}{"" if not norm else "_norm"}.pdf'
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -207,7 +211,7 @@ def main():
     incorrect_bits = data['Incorrect Bits']
     final_key_length = data['Final Key Length']
 
-    plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime, args.protocol)
+    plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, args.regime, args.protocol, args.norm)
 
 if __name__ == "__main__":
     main()
