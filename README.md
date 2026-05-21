@@ -43,6 +43,23 @@ the corresponding `*-norm` Makefile targets) to apply it before the Monte
 Carlo runs. Without `--norm`, the raw experimental values from `constants.py`
 are used directly. The raw values are never modified in either case.
 
+## Plotting methodology
+
+The fidelity plots produced by `fidelity_graph.py` include two derived quantities
+whose calculation is worth noting.
+
+**Success-ratio smoothing.** The per-key-length success ratio curve is smoothed
+with a 1-D Gaussian filter (`scipy.ndimage.gaussian_filter1d`, sigma = 3) before
+the half-metric crossing is located. This replaced an earlier Savitzky-Golay
+filter, which required a fixed window length and polynomial order that did not
+generalise well across all regimes.
+
+**Half-metric uncertainty.** The half-metric is the smallest key length at which
+the smoothed success ratio reaches 50%. Its uncertainty is estimated via bootstrap
+resampling: 1 000 resamples of the per-run data are drawn with replacement, each
+is smoothed with the same Gaussian filter, and the standard deviation of the
+resulting half-metric values is reported as the uncertainty.
+
 ## Repository layout
 
 ```

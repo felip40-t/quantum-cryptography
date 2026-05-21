@@ -12,6 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.signal import savgol_filter
+from scipy.ndimage import gaussian_filter1d
 from qkd.constants import N, RUNS
 
 
@@ -82,12 +83,18 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
     sr_grouped = df_temp.groupby('l')['s'].mean()
     success_ratio_means_x = sr_grouped.index.values
     success_ratio_means = sr_grouped.values
-    smoothed_success_ratio_means = savgol_filter(
-        success_ratio_means, window_length=11, polyorder=3)
+    # smoothed_success_ratio_means = savgol_filter(
+    #     success_ratio_means, window_length=31, polyorder=2)
+    smoothed_success_ratio_means = gaussian_filter1d(success_ratio_means, sigma=3)
 
-    # Find the key length where the protocol first reaches ~50% chance of an
-    # error-free key; used as a reference marker on the plot.
-    half_point = int(np.argmin(np.abs(smoothed_success_ratio_means - 50)))
+    # Find the largest key length still at or below 50% success ratio: the
+    # crossing point from below is more meaningful than argmin, which can
+    # land on the low side of the crossing.
+    above = np.where(smoothed_success_ratio_means >= 50)[0]
+    half_point = int(above[-1])
+
+    # Find the uncertainty of the half-metric using bootstrap resampling
+    half_metric_uncertainty = bootstrap_half_metric(df_temp, success_ratio_means_x)
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9, 6))
     # Twin axis lets fidelity (left) and success ratio (right) share the same
@@ -111,39 +118,18 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
                     linestyle='None', s=0.5, alpha=0.8, edgecolors='none',
                     label=f"{labels[i]} Incorrect Bits")
 
-    ax.axhline(y=mean_success, color="navy", linestyle='-', label=f'Mean Fidelity (converged)')
+    ax.axhline(y=mean_success, color="navy", linestyle='-', label=f'Mean Fidelity (converged):\n  ({mean_success:.3f} ± {sem:.3f})%')
 
     ax2.axvline(success_ratio_means_x[half_point], color="indigo",
-                linestyle="dashed", label="Half-metric", alpha=0.8)
+                linestyle="dashed", label=f'Half-metric: ({int(round(success_ratio_means_x[half_point], 0))} ± {half_metric_uncertainty:.0f}) bits', alpha=0.8)
     ax2.axhline(y=50, color="indigo", linestyle="dashed", alpha=0.8)
 
     ax2.yaxis.set_major_locator(plt.MultipleLocator(10))
 
-    print("Mean fidelity after 1/4 was:", mean_success)
-    print("SEM after 1/4 was:", sem)
-    print("Half-metric:", success_ratio_means_x[half_point])
-
-    # Label the mean fidelity line directly on the left y-axis.
-    ax.annotate(
-        rf'{round(mean_success, 2)}',
-        xy=(0, mean_success),
-        xycoords=('axes fraction', 'data'),
-        xytext=(-6, 0),
-        textcoords='offset points',
-        ha='right', va='center',
-        color="navy", fontsize=8,
-    )
-
-    # Label the 50%-success vertical line directly on the x-axis.
-    ax.annotate(
-        f'{int(round(success_ratio_means_x[half_point], 0))}',
-        xy=(success_ratio_means_x[half_point], 0),
-        xycoords=('data', 'axes fraction'),
-        xytext=(0, -6),
-        textcoords='offset points',
-        ha='center', va='top',
-        color="indigo", fontsize=8,
-    )
+    print(f"Mean fidelity after 1/4 was: {mean_success:.4f}")
+    print(f"SEM after 1/4 was: {sem:.4f}")
+    print(f"Half-metric: {success_ratio_means_x[half_point]}")
+    print(f"Half-metric uncertainty: {half_metric_uncertainty:.0f}")
 
     # Merge handles from both axes into a single legend placed outside the plot
     # to the upper right of the right-hand y-axis so it doesn't overlap the data.
@@ -166,6 +152,27 @@ def plot_data(correctness, bit_lengths, incorrect_bits, final_key_length, regime
         print(f"Plot saved successfully to {output_path}")
     except Exception as e:
         print(f"Error saving plot: {e}")
+
+def bootstrap_half_metric(df_temp, success_ratio_means_x, num_bootstrap=1000, window_length=11, polyorder=2):
+    """
+    Perform bootstrap resampling to estimate the uncertainty of the half-metric.
+    """
+    rng = np.random.default_rng(seed=42)
+    half_metrics = []
+    for _ in range(num_bootstrap):
+        sample_df = df_temp.sample(frac=1, replace=True)
+        sr_grouped = sample_df.groupby('l')['s'].mean()
+        sr_aligned = sr_grouped.reindex(success_ratio_means_x, fill_value=np.nan)
+        if sr_aligned.isna().any():
+            continue
+        # smoothed_sr = savgol_filter(sr_aligned.values, window_length=window_length, polyorder=polyorder)
+        smoothed_sr = gaussian_filter1d(sr_aligned.values, sigma=3)
+        above = np.where(smoothed_sr >= 50)[0]
+        index = int(above[-1])
+        half_metrics.append(success_ratio_means_x[index])
+
+    return np.std(half_metrics, ddof=1)
+
 
 def main():
     parser = argparse.ArgumentParser(
